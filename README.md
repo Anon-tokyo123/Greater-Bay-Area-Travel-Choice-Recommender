@@ -11,6 +11,9 @@ The model calculates the **Value of Travel Time Savings (VTTS)**. It dynamically
 * **Distance:** Short (50km), Medium (100km), Long (150km)
 * **Trip Purpose:** Work vs. Leisure
 * **Traveler Constraints:** E.g., Does the user hold a valid driving license?
+  
+## Be Careful
+During the data analysis phase, I discovered that the Logit model failed to calculate VTTS for 150km work trips because the fare coefficient collapsed to zero, likely due to company reimbursements. Therefore, I built a 'guardrail' into the FastAPI endpoint that actively intercepts and blocks these specific requests, preventing the model from hallucinating a recommendation.If I have more data to calculate the VTTS and the model calculate successfully it will be opend for use
 
 ## Tech Stack
 * **Machine Learning:** Python, pandas, scikit-learn (Logistic Regression with L1 penalty)
