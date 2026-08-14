@@ -1,45 +1,29 @@
-# Greater-Bay-Area-Travel-Choice-Recommender
-A model that provide advice for people deciding how they travel crossborder(from hong kong to mainland china),the api will give advice base on users preference on hidden cost, distance of travelling and income.All data inputed will be confidential and use for the advice only (for work purpose long distance travel, I dont have enough data now and it is unavaliable)
 # Greater Bay Area: Travel Choice API 🚄
-A production-ready predictive API built with **FastAPI** and **scikit-learn**. 
+A production-ready predictive API built with **FastAPI** and **scikit-learn** that provides data-driven advice for cross-border travel between Hong Kong and Mainland China.
 
 ## The Business Problem
-Transportation hubs need to predict commuter choices to optimize network capacity. This API uses a Discrete Choice Model (Logit Regression) trained on real-world Greater Bay Area survey data to predict whether a commuter will choose Bus/MTR, High-Speed Rail, Taxi, or Private Car.
+Transportation hubs need to predict commuter choices to optimize network capacity. This API uses a Discrete Choice Model (L1 Logistic Regression) trained on real-world Greater Bay Area survey data to predict whether a commuter will choose Bus/MTR, High-Speed Rail, Taxi, Private Car, or eVTOL. All data processed through the API remains strictly confidential. 
+
+*(Note: Data for long-distance work-related travel is currently limited and excluded from predictions).*
 
 ## How It Works
-The model calculates the **Value of Travel Time Savings (VTTS)**. It dynamically adjusts predictions based on:
+The model calculates the **Value of Travel Time Savings (VTTS)** and dynamically adjusts predictions based on:
 * **Distance:** Short (50km), Medium (100km), Long (150km)
-* **Trip Purpose:** Work vs. Leisure
-* **Traveler Constraints:** E.g., Does the user hold a valid driving license?
-  
-## Be Careful
-During the data analysis phase, I discovered that the Logit model failed to calculate VTTS for 150km work trips because the fare coefficient collapsed to zero, likely due to company reimbursements. Therefore, I built a 'guardrail' into the FastAPI endpoint that actively intercepts and blocks these specific requests, preventing the model from hallucinating a recommendation.If I have more data to calculate the VTTS and the model calculate successfully it will be opend for use
+* **Trip Purpose:** Work vs. Non-Work
+* **Hidden Costs & Preferences:** Evaluates in-vehicle time, crowding levels, transfer time, and customs clearance.
+
+## 🚀 Endpoints
+* **`GET /vtts`**: Instantly retrieves a static economic matrix of travel time valuation (HKD/Hour) across different distances based on trip purpose.
+* **`POST /predict_choice`**: A dynamic simulation tool. Input custom parameters (fare, travel time, crowding level) to receive a precise probability score of a commuter choosing a specific transport mode.
 
 ## Tech Stack
-* **Machine Learning:** Python, pandas, scikit-learn (Logistic Regression with L1 penalty)
-* **Backend:** FastAPI, pydantic, uvicorn
-* **Deployment:** (You will fill this in later when we put it on a cloud server)
+* **Machine Learning:** Python, Pandas, Scikit-Learn 
+* **Backend:** FastAPI, Pydantic, Uvicorn
 
 ## Local Testing
-To run this API on your local machine:
-1. Clone the repository.
-2. Run `pip install -r requirements.txt`.
-3. Start the server: `uvicorn main:app --reload`.
-4. Navigate to `http://127.0.0.1:8000/docs` to test the interactive Swagger UI.
-## How It Works
-The model calculates the **Value of Travel Time Savings (VTTS)**. It dynamically adjusts predictions based on:
-* **Distance:** Short (50km), Medium (100km), Long (150km)
-* **Trip Purpose:** Work vs. Leisure
-* **Traveler Constraints:** E.g., Does the user hold a valid driving license?
+Due to privacy constraints, the original survey data is not included in this repository. To run this API locally, you must place your own `GBA Final Data (1).xlsx` (or a mock `sample_data.xlsx`) in the root directory.
 
-## Tech Stack
-* **Machine Learning:** Python, pandas, scikit-learn (Logistic Regression with L1 penalty)
-* **Backend:** FastAPI, pydantic, uvicorn
-* **Deployment:** (You will fill this in later when we put it on a cloud server)
-
-## Local Testing
-To run this API on your local machine:
-1. Clone the repository.
-2. Run `pip install -r requirements.txt`.
-3. Start the server: `uvicorn main:app --reload`.
-4. Navigate to `http://127.0.0.1:8000/docs` to test the interactive Swagger UI.
+**1. Clone the repository**
+```bash
+git clone [https://github.com/yourusername/Greater-Bay-Area-Travel-Choice-Recommender.git](https://github.com/yourusername/Greater-Bay-Area-Travel-Choice-Recommender.git)
+cd Greater-Bay-Area-Travel-Choice-Recommender
