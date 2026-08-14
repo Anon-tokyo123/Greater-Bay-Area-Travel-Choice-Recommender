@@ -4,7 +4,7 @@ A production-ready predictive API built with **FastAPI** and **scikit-learn** th
 ## The Business Problem
 Transportation hubs need to predict commuter choices to optimize network capacity. This API uses a Discrete Choice Model (L1 Logistic Regression) trained on real-world Greater Bay Area survey data to predict whether a commuter will choose Bus/MTR, High-Speed Rail, Taxi, Private Car, or eVTOL. All data processed through the API remains strictly confidential. 
 
-
+*(Note: Data for long-distance work-related travel is currently limited and excluded from predictions).*
 
 ## How It Works
 The model calculates the **Value of Travel Time Savings (VTTS)** and dynamically adjusts predictions based on:
@@ -27,3 +27,29 @@ Due to privacy constraints, the original survey data is not included in this rep
 ```bash
 git clone [https://github.com/yourusername/Greater-Bay-Area-Travel-Choice-Recommender.git](https://github.com/yourusername/Greater-Bay-Area-Travel-Choice-Recommender.git)
 cd Greater-Bay-Area-Travel-Choice-Recommender
+```
+
+**2. Create a virtual environment**
+*   **Windows:** *(If `python` opens the Windows Store, use `py`)*
+    ```bash
+    py -m venv venv
+    .\venv\Scripts\activate
+    ```
+*   **Mac/Linux:**
+    ```bash
+    python3 -m venv venv
+    source venv/bin/activate
+    ```
+
+**3. Install dependencies**
+```bash
+pip install -r requirements.txt
+```
+
+**4. Start the server**
+```bash
+uvicorn api:app --reload
+```
+
+**5. Access the API**
+Navigate to `http://127.0.0.1:8000/docs` to test the interactive Swagger UI.
