@@ -6,7 +6,11 @@ import os
 import warnings
 
 warnings.filterwarnings('ignore')
+X_cols = ['fare', 'in-vehicle time', 'waiting time', 'access & egress time',
+          'transfer time', 'crowding level', 'customs clearance time']
 
+distances = ['Short (50km)', 'Medium (100km)', 'Long (150km)']
+time_vars = ['in-vehicle time', 'access & egress time', 'customs clearance time']
 # =====================================================================
 # 1. DATA PREPARATION & CLEANING
 # =====================================================================
@@ -23,8 +27,7 @@ def load_and_clean_data():
     else:
         print("Warning: Could not find Income column '5'.")
 
-    X_cols = ['fare', 'in-vehicle time', 'waiting time', 'access & egress time',
-              'transfer time', 'crowding level', 'customs clearance time']
+   
 
     def clean_attributes(df):
         df = df.copy()
@@ -78,6 +81,7 @@ def create_long_format(survey_data, attr_dicts):
                                 record = mode_row.iloc[0].to_dict()
                                 record['is_chosen'] = 1 if mode_idx == choice else 0
                                 record['Purpose'] = 'Work' if v == 1 else 'Non-Work'
+                                
                                 # Generate ASCs (Mode 1: Bus/MTR is the baseline/reference)
                                 record['ASC_HSR'] = 1 if mode_idx == 2 else 0
                                 record['ASC_Taxi'] = 1 if mode_idx == 3 else 0
@@ -120,6 +124,21 @@ def run_regression(df_subset, features):
 # =====================================================================
 # 4. MAIN EXECUTION (ANALYSIS 1 & 2)
 # =====================================================================
+def calculate_vtts_table(df):
+    vtts_results = {}
+    for dist in distances:
+        subset = df[df['Distance_Category'] == dist]
+        coefs = run_regression(subset, X_cols)
+        beta_fare = coefs['fare']
+
+        res = {}
+        for t_col in time_vars:
+            if beta_fare < 0:
+                res[t_col] = (coefs[t_col] / beta_fare) * 60
+            else:
+                res[t_col] = np.nan
+        vtts_results[dist] = res
+    return pd.DataFrame(vtts_results).round(2)
 def main():
     survey_data, attr_dicts, X_cols = load_and_clean_data()
     df_long_all = create_long_format(survey_data, attr_dicts)
@@ -137,8 +156,6 @@ def main():
     print("ANALYSIS 1: VALUE OF TRAVEL TIME SAVINGS (VTTS)")
     print("="*50)
 
-    distances = ['Short (50km)', 'Medium (100km)', 'Long (150km)']
-    time_vars = ['in-vehicle time', 'access & egress time', 'customs clearance time']
 
     def calculate_vtts_table(df):
         vtts_results = {}
