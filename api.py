@@ -5,7 +5,7 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
-# --- Assume your data loading functions from vtts_model.py are imported here ---
+# --- Assume your data loading functions from model.py are imported here ---
 from model import load_and_clean_data, create_long_format, calculate_vtts_table, X_cols
 
 app = FastAPI(title="GBA Travel Mode & VTTS API", version="1.0")
@@ -24,7 +24,8 @@ models_cache = {}
 
 def train_scenario_model(purpose, distance):
     subset = df_long_all[(df_long_all['Purpose'] == purpose) & (df_long_all['Distance_Category'] == distance)]
-    if subset.empty: return None, None
+    if subset.empty: 
+        return None, None
     
     X = subset[asc_features]
     y = subset['is_chosen']
@@ -65,7 +66,7 @@ class TripParameters(BaseModel):
     waiting_time: float
     access_egress_time: float
     transfer_time: float
-    crowding_level: float # e.g., 0.5 for 50%
+    crowding_level: float 
     customs_clearance_time: float
 
 # --- 3. Endpoints ---
@@ -105,7 +106,6 @@ def predict_mode_probability(
     model_data = models_cache.get((purpose.value, distance.value))
     
     if not model_data or model_data[0] is None:
-        # If we haven't pre-trained it, train it right now
         model, scaler = train_scenario_model(purpose.value, distance.value)
         if model is None:
              raise HTTPException(status_code=404, detail="Not enough data to train this scenario.")
@@ -113,13 +113,11 @@ def predict_mode_probability(
     else:
         model, scaler = model_data
 
-    # Set up the ASC dummy variables based on the requested mode
     asc_hsr = 1 if mode == ModeChoice.hsr else 0
     asc_taxi = 1 if mode == ModeChoice.taxi else 0
     asc_private = 1 if mode == ModeChoice.private_car else 0
     asc_evtol = 1 if mode == ModeChoice.evtol else 0
 
-    # Format the input data to match the training data exactly
     input_data = pd.DataFrame([{
         'fare': params.fare,
         'in-vehicle time': params.in_vehicle_time,
@@ -134,15 +132,20 @@ def predict_mode_probability(
         'ASC_eVTOL': asc_evtol
     }])
 
-    # Scale the custom parameters using the saved scaler
+    # Explicitly enforce column order to prevent StandardScaler validation crashes
+    input_data = input_data[asc_features]
+
     input_scaled = scaler.transform(input_data)
     
-    # Predict the probability (index 1 is the probability of "is_chosen" = 1)
-    probability = model.predict_proba(input_scaled)[0][1]
+    # Safe float extraction to prevent NumPy JSON Serialization crashes
+    probability = float(model.predict_proba(input_scaled)[0][1])
+
+    # Check for Pydantic v1 vs v2 safely
+    params_dict = params.model_dump() if hasattr(params, 'model_dump') else params.dict()
 
     return {
         "scenario": f"{purpose.value} - {distance.value}",
         "tested_mode": mode.value,
-        "input_parameters": params.dict(),
+        "input_parameters": params_dict,
         "probability_of_choosing": round(probability, 4)
     }
