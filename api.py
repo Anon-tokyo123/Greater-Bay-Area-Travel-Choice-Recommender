@@ -6,7 +6,7 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 
 # --- Assume your data loading functions from vtts_model.py are imported here ---
-from vtts_model import load_and_clean_data, create_long_format, calculate_vtts_table, X_cols
+from model import load_and_clean_data, create_long_format, calculate_vtts_table, X_cols
 
 app = FastAPI(title="GBA Travel Mode & VTTS API", version="1.0")
 
