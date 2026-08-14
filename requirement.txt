@@ -1,0 +1,6 @@
+Python packages that requires to run the code:
+1.pandas
+2.numpy
+3.scikit-learn
+4.openpyxl (needed for pandas to read Excel files)
+5.fastapi
