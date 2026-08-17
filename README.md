@@ -1,6 +1,11 @@
 # Greater Bay Area: Travel Choice API 🚄
 A production-ready predictive API built with **FastAPI** and **scikit-learn** that provides data-driven advice for cross-border travel between Hong Kong and Mainland China.
 
+## Project Status
+
+This repository contains the research and demonstration code developed for the project.
+
+The original respondent-level survey dataset is confidential and is therefore not included in this repository. The publicly available survey scenario files describe the attributes and alternatives used in the choice experiments.
 ## The Business Problem
 Transportation hubs need to predict commuter choices to optimize network capacity. This API uses a Discrete Choice Model (L1 Logistic Regression) trained on real-world Greater Bay Area survey data to predict whether a commuter will choose Bus/MTR, High-Speed Rail, Taxi, Private Car, or eVTOL. All data processed through the API remains strictly confidential. 
 
