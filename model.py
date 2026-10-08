@@ -3,9 +3,8 @@ import numpy as np
 from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import StandardScaler
 import os
-import warnings
+from pathlib import Path
 
-warnings.filterwarnings('ignore')
 X_cols = ['fare', 'in-vehicle time', 'waiting time', 'access & egress time',
           'transfer time', 'crowding level', 'customs clearance time']
 
@@ -14,25 +13,50 @@ time_vars = ['in-vehicle time', 'access & egress time', 'customs clearance time'
 # =====================================================================
 # 1. DATA PREPARATION & CLEANING
 # =====================================================================
-def load_and_clean_data():
-    print("Loading survey data...")
-    survey = pd.read_excel('GBA Final Data (1).xlsx', sheet_name='Full')
+def load_and_clean_data(survey_path=None, attributes_dir=None):
+    """Load the private survey workbook and the public mode attribute tables.
+
+    The workbook path can be supplied explicitly or through GBA_SURVEY_PATH.
+    It is intentionally not included in this repository.
+    """
+    project_dir = Path(__file__).resolve().parent
+    survey_path = Path(survey_path or os.environ.get(
+        "GBA_SURVEY_PATH", project_dir / "GBA Final Data (1).xlsx"
+    )).expanduser()
+    attributes_dir = Path(attributes_dir or project_dir / "datamode")
+
+    if not survey_path.is_file():
+        raise FileNotFoundError(
+            f"Survey workbook not found at {survey_path}. Set GBA_SURVEY_PATH "
+            "to the professor-approved local workbook; the private data is not included."
+        )
+
+    print(f"Loading survey data from {survey_path}...")
+    survey = pd.read_excel(survey_path, sheet_name='Full')
     survey_data = survey.drop(index=0).reset_index(drop=True)
     survey_data['QNSet'] = pd.to_numeric(survey_data['QNSet'], errors='coerce')
 
     # Identify the Income column (Column name '5')
     income_col = [c for c in survey_data.columns if str(c) == '5']
     if income_col:
-        survey_data['Income'] = pd.to_numeric(survey_data[income_col[0]], errors='coerce')
+        income = pd.to_numeric(survey_data[income_col[0]], errors='coerce').rename('Income')
     else:
-        print("Warning: Could not find Income column '5'.")
+        print("Warning: Could not find Income column '5'; income analysis will be unavailable.")
+        income = pd.Series(np.nan, index=survey_data.index, name='Income')
+    survey_data = pd.concat(
+        [survey_data.drop(columns=['Income'], errors='ignore'), income], axis=1
+    )
 
    
 
     def clean_attributes(df):
         df = df.copy()
-        df['scenario_id'] = df['scenario_id'].apply(lambda x: f"{float(x):.1f}")
+        df['scenario_id'] = pd.to_numeric(df['scenario_id'], errors='coerce').map(
+            lambda value: f"{value:.1f}" if pd.notna(value) else None
+        )
         df = df.replace('--', '0')
+        if 'mode' in df.columns:
+            df['mode'] = pd.to_numeric(df['mode'], errors='coerce')
         if 'crowding level' in df.columns:
             df['crowding level'] = df['crowding level'].astype(str).str.replace('%', '')
             df['crowding level'] = pd.to_numeric(df['crowding level'], errors='coerce').fillna(0) / 100.0
@@ -42,16 +66,19 @@ def load_and_clean_data():
         return df
 
     attr_files = {
-        1: 'data_mode_attributes(0).csv',
-        2: 'data_mode_attributes(1).csv',
-        3: 'data_mode_attributes(2).csv',
-        4: 'data_mode_attributes(3).csv'
+        qnset: attributes_dir / f'data_mode_attributes({qnset - 1}).csv'
+        for qnset in range(1, 5)
     }
 
     attr_dicts = {}
     for qnset, fname in attr_files.items():
-        if os.path.exists(fname):
+        if fname.is_file():
             attr_dicts[qnset] = clean_attributes(pd.read_csv(fname))
+
+    if not attr_dicts:
+        raise FileNotFoundError(
+            f"No mode attribute CSV files found in {attributes_dir}."
+        )
 
     return survey_data, attr_dicts, X_cols
 
@@ -92,6 +119,9 @@ def create_long_format(survey_data, attr_dicts):
 
     df_long = pd.DataFrame(long_records)
 
+    if df_long.empty:
+        return df_long
+
     # Categorize distances
     def categorize_distance(scenario_id):
         sc_num = float(str(scenario_id).split('.')[0])
@@ -106,15 +136,23 @@ def create_long_format(survey_data, attr_dicts):
 # 3. CORE REGRESSION ENGINE (UNSCALING COEFFICIENTS)
 # =====================================================================
 def run_regression(df_subset, features):
+    if df_subset.empty:
+        raise ValueError("Cannot fit a model because the selected data is empty.")
+
     X = df_subset[features]
     y = df_subset['is_chosen']
+
+    if y.nunique() < 2:
+        raise ValueError("Cannot fit a model because the selected data has only one class.")
 
     # Scale features for L1 solver stability
     scaler = StandardScaler()
     X_scaled = scaler.fit_transform(X)
 
     # Run Model
-    model = LogisticRegression(penalty='l1', solver='saga', C=5.0, max_iter=5000, random_state=42)
+    model = LogisticRegression(
+        solver='saga', l1_ratio=1.0, C=5.0, max_iter=5000, random_state=42
+    )
     model.fit(X_scaled, y)
 
     # UNSCALE coefficients to get true economic values
@@ -128,12 +166,16 @@ def calculate_vtts_table(df):
     vtts_results = {}
     for dist in distances:
         subset = df[df['Distance_Category'] == dist]
-        coefs = run_regression(subset, X_cols)
+        try:
+            coefs = run_regression(subset, X_cols)
+        except ValueError:
+            vtts_results[dist] = {time_col: np.nan for time_col in time_vars}
+            continue
         beta_fare = coefs['fare']
 
         res = {}
         for t_col in time_vars:
-            if beta_fare < 0:
+            if beta_fare < 0 and beta_fare != 0:
                 res[t_col] = (coefs[t_col] / beta_fare) * 60
             else:
                 res[t_col] = np.nan
@@ -156,23 +198,6 @@ def main():
     print("ANALYSIS 1: VALUE OF TRAVEL TIME SAVINGS (VTTS)")
     print("="*50)
 
-
-    def calculate_vtts_table(df):
-        vtts_results = {}
-        for dist in distances:
-            subset = df[df['Distance_Category'] == dist]
-            coefs = run_regression(subset, X_cols)
-            beta_fare = coefs['fare']
-
-            res = {}
-            for t_col in time_vars:
-                # VTTS = (Beta_Time / Beta_Fare) * 60. Only valid if Beta_Fare is negative.
-                if beta_fare < 0:
-                    res[t_col] = (coefs[t_col] / beta_fare) * 60
-                else:
-                    res[t_col] = np.nan
-            vtts_results[dist] = res
-        return pd.DataFrame(vtts_results).round(2)
 
     print("\n--- VTTS: General Population (HKD/Hour) ---")
     print(calculate_vtts_table(df_long_all).to_markdown())

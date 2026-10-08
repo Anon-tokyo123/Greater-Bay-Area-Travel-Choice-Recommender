@@ -216,3 +216,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Restricted survey data and local analysis outputs
+GBA Final Data*.xlsx
+sample_data.xlsx
+GBA_ASC_Results.csv
+.venv/
+.codex-test-deps/
+.pip-temp/
