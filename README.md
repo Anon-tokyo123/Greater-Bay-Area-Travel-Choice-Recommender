@@ -1,56 +1,120 @@
-# Greater Bay Area: Travel Choice API 🚄
-A production-ready predictive API built with **FastAPI** and **scikit-learn** that provides data-driven advice for cross-border travel between Hong Kong and Mainland China.
+# Greater Bay Area Travel Choice Recommender
 
+An academic project exploring stated-preference transport choices in the
+Greater Bay Area. The core work is survey-data preparation, choice modelling,
+and Value of Travel Time Savings (VTTS) analysis. A FastAPI interface was added
+after the modelling work as a prototype for trying model outputs.
 
-## The Business Problem
-Transportation hubs need to predict commuter choices to optimize network capacity. This API uses a Discrete Choice Model (L1 Logistic Regression) trained on real-world Greater Bay Area survey data to predict whether a commuter will choose Bus/MTR, High-Speed Rail, Taxi, Private Car, or eVTOL. All data processed through the API remains strictly confidential. 
+## Data and privacy
 
-*(Note: Data for long-distance work-related travel is currently limited and excluded from predictions).*
+The survey workbook is restricted by the project supervisor and is not included
+in this repository. Do not commit the workbook, respondent-level data, or other
+restricted materials. The API and analysis require a locally available,
+professor-approved workbook in the expected format. The mode-attribute CSV files
+in `datamode/` describe the choice scenarios and are loaded by the model code.
 
-## How It Works
-The model calculates the **Value of Travel Time Savings (VTTS)** and dynamically adjusts predictions based on:
-* **Distance:** Short (50km), Medium (100km), Long (150km)
-* **Trip Purpose:** Work vs. Non-Work
-* **Hidden Costs & Preferences:** Evaluates in-vehicle time, crowding levels, transfer time, and customs clearance.
+Set `GBA_SURVEY_PATH` to the local workbook path before starting the API:
 
-## 🚀 Endpoints
-* **`GET /vtts`**: Instantly retrieves a static economic matrix of travel time valuation (HKD/Hour) across different distances based on trip purpose.
-* **`POST /predict_choice`**: A dynamic simulation tool. Input custom parameters (fare, travel time, crowding level) to receive a precise probability score of a commuter choosing a specific transport mode.
-
-## Tech Stack
-* **Machine Learning:** Python, Pandas, Scikit-Learn 
-* **Backend:** FastAPI, Pydantic, Uvicorn
-
-## Local Testing
-Due to privacy constraints, the original survey data is not included in this repository. To run this API locally, you must place your own `GBA Final Data (1).xlsx` (or a mock `sample_data.xlsx`) in the root directory.
-
-**1. Clone the repository**
-```bash
-git clone [https://github.com/yourusername/Greater-Bay-Area-Travel-Choice-Recommender.git](https://github.com/yourusername/Greater-Bay-Area-Travel-Choice-Recommender.git)
-cd Greater-Bay-Area-Travel-Choice-Recommender
+```powershell
+$env:GBA_SURVEY_PATH = "C:\path\to\approved-survey.xlsx"
 ```
 
-**2. Create a virtual environment**
-*   **Windows:** *(If `python` opens the Windows Store, use `py`)*
-    ```bash
-    py -m venv venv
-    .\venv\Scripts\activate
-    ```
-*   **Mac/Linux:**
-    ```bash
-    python3 -m venv venv
-    source venv/bin/activate
-    ```
+On macOS/Linux:
 
-**3. Install dependencies**
 ```bash
-pip install -r requirements.txt
+export GBA_SURVEY_PATH="/path/to/approved-survey.xlsx"
 ```
 
-**4. Start the server**
-```bash
+The workbook must contain the `Full` sheet and the survey columns expected by
+`model.py`. If data are unavailable, the API starts without loading it and
+returns a clear service error when a data-dependent endpoint is requested.
+
+### Run without the private workbook
+
+For a local API demonstration, opt into deterministic synthetic data before
+starting the server:
+
+```powershell
+# Windows PowerShell
+$env:GBA_DEMO_MODE = "1"
 uvicorn api:app --reload
 ```
 
-**5. Access the API**
-Navigate to `http://127.0.0.1:8000/docs` to test the interactive Swagger UI.
+```bash
+# macOS/Linux
+GBA_DEMO_MODE=1 uvicorn api:app --reload
+```
+
+Demo responses identify their source as `synthetic_demo` and include an explicit
+notice. The generated records are only for exercising the API; they are not
+derived from, calibrated to, or evidence for the restricted survey results.
+Unset `GBA_DEMO_MODE` to return to private-survey mode.
+
+## Model and interpretation
+
+The analysis expands each reported alternative into chosen/not-chosen rows and
+fits L1-regularized logistic regression models. VTTS is derived from the ratio
+of estimated time and fare coefficients. Results depend on the private survey,
+scenario attributes, model specification, and sample size; they should be
+interpreted as academic estimates, not validated travel advice.
+
+`POST /predict_choice` returns a binary model probability for one requested
+mode. Scores from separate mode requests are **not normalized** and may not sum
+to 1. This API is a prototype; it does not provide a calibrated, joint choice
+distribution over all modes.
+
+## Setup
+
+Python 3.10 or newer is recommended.
+
+```bash
+git clone https://github.com/Anon-tokyo123/Greater-Bay-Area-Travel-Choice-Recommender.git
+cd Greater-Bay-Area-Travel-Choice-Recommender
+python -m venv .venv
+```
+
+Activate the environment:
+
+```powershell
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+```
+
+```bash
+# macOS/Linux
+source .venv/bin/activate
+```
+
+Install packages and launch the local server:
+
+```bash
+python -m pip install -r requirements.txt
+uvicorn api:app --reload
+```
+
+Open `http://127.0.0.1:8000/docs` for the interactive API documentation.
+The survey data are loaded only when `/vtts` or `/predict_choice` is called.
+
+## Endpoints
+
+- `GET /` — API status message.
+- `GET /vtts?purpose=Work` — VTTS estimates by distance and time component.
+- `POST /predict_choice?purpose=Work&distance=Short%20(50km)&mode=HSR` — binary
+  chosen-vs-not-chosen score for the supplied alternative attributes.
+
+All numeric travel attributes must be non-negative. Crowding is a proportion
+from 0 to 1.
+
+## Project scope and limitations
+
+- The survey workbook is not published for privacy and project restrictions.
+- The API was developed after the final-year modelling work and is a prototype.
+- Predictions depend on the local restricted data and are not independently
+  reproducible from this repository alone.
+- Long-distance work-trip coverage is limited, as noted in the project analysis.
+- The binary mode scores are not probabilities over a jointly evaluated set of
+  alternatives.
+
+## License
+
+See [LICENSE](LICENSE).
