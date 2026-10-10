@@ -13,6 +13,11 @@ restricted materials. The API and analysis require a locally available,
 professor-approved workbook in the expected format. The mode-attribute CSV files
 in `datamode/` describe the choice scenarios and are loaded by the model code.
 
+The restricted workbook used for this project contains 1,000 respondent records
+(250 in each of four questionnaire sets). Because the survey data are
+confidential, the underlying records, fitted coefficients, and model performance
+values cannot be shared publicly.
+
 Set `GBA_SURVEY_PATH` to the local workbook path before starting the API:
 
 ```powershell
@@ -52,11 +57,19 @@ Unset `GBA_DEMO_MODE` to return to private-survey mode.
 
 ## Model and interpretation
 
-The analysis expands each reported alternative into chosen/not-chosen rows and
-fits L1-regularized logistic regression models. VTTS is derived from the ratio
-of estimated time and fare coefficients. Results depend on the private survey,
-scenario attributes, model specification, and sample size; they should be
-interpreted as academic estimates, not validated travel advice.
+The analysis expands each reported alternative into chosen/not-chosen rows,
+standardizes the predictors, and fits L1-regularized logistic regression models
+with the `saga` solver (`C=5`, `max_iter=5000`). L1 regularization was used to
+shrink less informative coefficients toward zero and encourage a sparser model.
+VTTS is derived from the ratio of estimated time and fare coefficients.
+
+The current modelling code fits each scenario model on all available records; it
+does not implement a train/test split or cross-validation, and it does not
+calculate out-of-sample accuracy, log-loss, or other validation metrics. These
+should be added before making claims about predictive performance. Results
+depend on the private survey, scenario attributes, model specification, and
+sample size; they should be interpreted as academic estimates, not validated
+travel advice.
 
 `POST /predict_choice` returns a binary model probability for one requested
 mode. Scores from separate mode requests are **not normalized** and may not sum
@@ -95,6 +108,19 @@ uvicorn api:app --reload
 Open `http://127.0.0.1:8000/docs` for the interactive API documentation.
 The survey data are loaded only when `/vtts` or `/predict_choice` is called.
 
+### Run the automated tests
+
+The pytest suite uses synthetic demo data and does not need the restricted
+workbook:
+
+```bash
+python -m pip install -r requirements-dev.txt
+python -m pytest -q
+```
+
+GitHub Actions runs the same suite on pushes to `main` or `recommender-*`
+branches and on pull requests targeting `main`.
+
 ## Endpoints
 
 - `GET /` — API status message.
@@ -114,6 +140,13 @@ from 0 to 1.
 - Long-distance work-trip coverage is limited, as noted in the project analysis.
 - The binary mode scores are not probabilities over a jointly evaluated set of
   alternatives.
+- Future work: add a multinomial choice model or normalize scores across all
+  modes with softmax so that a scenario returns one joint distribution whose
+  probabilities sum to 1.
+- Future work: evaluate generalization with a respondent-level holdout split or
+  cross-validation, report approved aggregate metrics, and expand API test
+  coverage as the model evolves. Keep all evaluation data and outputs within the
+  restrictions set by the project supervisor.
 
 ## License
 
